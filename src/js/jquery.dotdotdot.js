@@ -1,5 +1,5 @@
 /*
- *  jQuery dotdotdot 1.6.12
+ *  jQuery dotdotdot 1.6.13
  *
  *  Copyright (c) Fred Heusschen
  *  www.frebsite.nl
@@ -11,6 +11,55 @@
  *  http://en.wikipedia.org/wiki/MIT_License
  *  http://en.wikipedia.org/wiki/GNU_General_Public_License
  */
+
+/**
+ *  Customisations for Zepto from MobileIQ
+ *
+ *  Added Zepto method for calculating innerWidth (and others)
+ *  Changed events from .dot to _dot
+ *  On the Update and Destroy methods, changed the creation and removal of content
+ *  On getTrueInnerHeight - return $el.outerHeight()
+ *
+ */
+
+
+// CUSTOM
+// To enable innter/outer/width/height in Zepto
+if ( window.Zepto ) {
+    (function($) {
+        // Add inner and outer width to zepto (adapted from https://gist.github.com/alanhogan/3935463)
+        var ioDim = function(dimension, includeBorder) {
+            return function (includeMargin) {
+                var sides, size, elem;
+                if (this) {
+                    elem = this;
+                    size = elem[dimension]();
+                    sides = {
+                        width: ["left", "right"],
+                        height: ["top", "bottom"]
+                    };
+                    sides[dimension].forEach(function(side) {
+                        size += parseInt(elem.css("padding-" + side), 10);
+                        if (includeBorder) {
+                            size += parseInt(elem.css("border-" + side + "-width"), 10);
+                        }
+                        if (includeMargin) {
+                            size += parseInt(elem.css("margin-" + side), 10);
+                        }
+                    });
+                    return size;
+                } else {
+                    return null;
+                }
+            }
+        };
+        ["width", "height"].forEach(function(dimension) {
+            var Dimension = dimension.substr(0,1).toUpperCase() + dimension.substr(1);
+            $.fn["inner" + Dimension] = ioDim(dimension, false);
+            $.fn["outer" + Dimension] = ioDim(dimension, true);
+        });
+    })(Zepto);
+}
 
 (function( $, undef )
 {
@@ -41,7 +90,7 @@
 
         if ( $dot.data( 'dotdotdot' ) )
         {
-            $dot.trigger( 'destroy.dot' );
+            $dot.trigger( 'destroy_dot' );
         }
 
         $dot.data( 'dotdotdot-style', $dot.attr( 'style' ) || '' );
@@ -54,7 +103,7 @@
         $dot.bind_events = function()
         {
             $dot.bind(
-                'update.dot',
+                'update_dot',
                 function( e, c )
                 {
                     e.preventDefault();
@@ -79,11 +128,9 @@
                     }
 
                     $inr = $dot.wrapInner( '<div class="dotdotdot" />' ).children();
-                    $inr.contents()
-                        .detach()
-                        .end()
+                    // CUSTOM
+                    $inr.empty()
                         .append( orgContent.clone( true ) )
-                        .find( 'br' ).replaceWith( '  <br />  ' ).end()
                         .css({
                             'height'    : 'auto',
                             'width'     : 'auto',
@@ -91,6 +138,22 @@
                             'padding'   : 0,
                             'margin'    : 0
                         });
+                    /**
+                     *  The code below is from the 1.6.12 version - but won't work with zepto
+                     */
+                    // $inr.contents()
+                    //     .detach()
+                    //     .end()
+                    //     .append( orgContent.clone( true ) )
+                    //     .find( 'br' ).replaceWith( '  <br />  ' ).end()
+                    //     .css({
+                    //         'height'    : 'auto',
+                    //         'width'     : 'auto',
+                    //         'border'    : 'none',
+                    //         'padding'   : 0,
+                    //         'margin'    : 0
+                    //     });
+
 
                     var after = false,
                         trunc = false;
@@ -126,7 +189,7 @@
                 }
 
             ).bind(
-                'isTruncated.dot',
+                'isTruncated_dot',
                 function( e, fn )
                 {
                     e.preventDefault();
@@ -140,7 +203,7 @@
                 }
 
             ).bind(
-                'originalContent.dot',
+                'originalContent_dot',
                 function( e, fn )
                 {
                     e.preventDefault();
@@ -154,20 +217,27 @@
                 }
 
             ).bind(
-                'destroy.dot',
+                'destroy_dot',
                 function( e )
                 {
                     e.preventDefault();
                     e.stopPropagation();
 
                     $dot.unwatch()
+                        // CUSTOM
                         .unbind_events()
-                        .contents()
-                        .detach()
-                        .end()
+                        .empty()
                         .append( orgContent )
-                        .attr( 'style', $dot.data( 'dotdotdot-style' ) || '' )
                         .data( 'dotdotdot', false );
+
+                        // Non Zepto Compatible
+                        // .unbind_events()
+                        // .contents()
+                        // .detach()
+                        // .end()
+                        // .append( orgContent )
+                        // .attr( 'style', $dot.data( 'dotdotdot-style' ) || '' )
+                        // .data( 'dotdotdot', false );
                 }
             );
             return $dot;
@@ -175,7 +245,7 @@
 
         $dot.unbind_events = function()
         {
-            $dot.unbind('.dot');
+            $dot.unbind('update_dot isTruncated_dot originalContent_dot destroy_dot');
             return $dot;
         };  //  /unbind_events
 
@@ -189,7 +259,7 @@
                     _wHeight = $window.height();
 
                 $window.bind(
-                    'resize.dot' + conf.dotId,
+                    'resize_dot' + conf.dotId,
                     function()
                     {
                         if ( _wWidth != $window.width() || _wHeight != $window.height() || !opts.windowResizeFix )
@@ -204,7 +274,7 @@
                             watchInt = setTimeout(
                                 function()
                                 {
-                                    $dot.trigger( 'update.dot' );
+                                    $dot.trigger( 'update_dot' );
                                 }, 10
                             );
                         }
@@ -221,7 +291,7 @@
                         if ( watchOrg.width  != watchNew.width ||
                              watchOrg.height != watchNew.height )
                         {
-                            $dot.trigger( 'update.dot' );
+                            $dot.trigger( 'update_dot' );
                             watchOrg = getSizes( $dot );
                         }
                     }, 100
@@ -231,7 +301,7 @@
         };
         $dot.unwatch = function()
         {
-            $(window).unbind( 'resize.dot' + conf.dotId );
+            $(window).unbind( 'resize_dot' + conf.dotId );
             if ( watchInt )
             {
                 clearInterval( watchInt );
@@ -264,7 +334,7 @@
 
         $dot.data( 'dotdotdot', true )
             .bind_events()
-            .trigger( 'update.dot' );
+            .trigger( 'update_dot' );
 
         if ( opts.watch )
         {
@@ -618,6 +688,7 @@
     }
     function getTrueInnerHeight( $el )
     {
+        /*
         var h = $el.innerHeight(),
             a = [ 'paddingTop', 'paddingBottom' ];
 
@@ -631,6 +702,10 @@
             h -= m;
         }
         return h;
+        */
+
+        // CUSTOM
+        return $el.outerHeight();
     }
 
 
@@ -659,4 +734,4 @@
     };
 
 
-})( $ );
+})( window.jQuery || window.Zepto );
